@@ -19,9 +19,8 @@ const menuItems = [
   { icon: <Home color='white'></Home>, label: 'Home', onClick: () => router.push('/dashboard') },
   { icon: <PersonStanding color='white'></PersonStanding>, label: 'Your friends', onClick: () => router.push('/dashboard/friends') },
   { icon: <CurrencyIcon color='white'></CurrencyIcon>, label: 'Expenses', onClick: () => router.push('/dashboard/expense') },
-  { icon: <UserRound color='white'></UserRound>, label: 'Profile', onClick: () => alert('Profile!') },
-  { icon: <ChartColumnDecreasing color='white'></ChartColumnDecreasing>, label: 'Analayse report', onClick: () => alert('Report!') },
-  { icon: <Settings color='white'></Settings>, label: 'Settings', onClick: () => alert('Settings!') },
+  { icon: <UserRound color='white'></UserRound>, label: 'Profile', onClick: () => router.push('/dashboard/profile') },
+  { icon: <ChartColumnDecreasing color='white'></ChartColumnDecreasing>, label: 'Analyze report', onClick: () => router.push('/dashboard/analyze') },
 ];
 
   const handleLogout = async () => {
@@ -36,99 +35,57 @@ const menuItems = [
 
   return (
     <>
-      <nav className="bg-white shadow-lg fixed z-[999] w-full top-0 left-0">
+      <nav className="bg-white/70 backdrop-blur-md border-b border-zinc-200/50 fixed z-[999] w-full top-0 left-0">
         <div className="w-full md:max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
             {/* Logo */}
             <Link href="/" className="flex items-center gap-2">
-
-              <span className="text-gray-800 font-bold md:text-2xl text-xl sm:inline uppercase">Split Buddy</span>
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600">
+                  <span className="h-2 w-2 rounded-full bg-white"></span>
+              </span>
+              <span className="text-gray-800 font-extrabold text-xl tracking-tight uppercase">Split Buddy</span>
             </Link>
 
-            {/* Right Section - User & Menu Button */}
-            <div className="flex items-center">
-              {session?.user && (
-                <div className="flex items-center gap-2 flex-row-reverse">
-                  <span className="text-gray-900 text-md font-semibold">{session.user.name || session.user.email}</span>
-                  {session.user.image ? (
-                    <Image
-                      src={session.user.image}
-                      alt="User Avatar"
-                      width={32}
-                      height={32}
-                      className="w-8 h-8 rounded-full"
-                    />
-                  ) : <div>
-                    <h1 className='bg-indigo-500 flex items-center justify-center text-white font-bold uppercase rounded-full p-2 w-8 h-8 text-md'>{session?.user?.email[0]}</h1>
-                    </div>}
-                </div>
-              )}
-
-              {/* Menu Button */}
-              {/* <button
-                onClick={() => setIsMenuOpen(!isMenuOpen)}
-                className="text-white p-2 rounded-lg hover:bg-white hover:bg-opacity-20 transition-all"
-              >
-                {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
-              </button> */}
+            {/* Right Section - Dropdown */}
+            <div className="flex flex-1 justify-end relative">
+                {session?.user && (
+                    <div className="relative">
+                        <button
+                            onClick={() => setIsMenuOpen(!isMenuOpen)}
+                            className="flex items-center gap-2 text-sm font-semibold leading-6 text-zinc-900 hover:bg-zinc-900/5 px-4 py-2 rounded-full transition-colors"
+                        >
+                            <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-bold text-sm uppercase shadow-sm">
+                                {session.user.email[0]}
+                            </div>
+                            <span className="hidden sm:inline-block truncate max-w-[150px]">{session.user.email}</span>
+                            <svg className={`w-4 h-4 transition-transform ${isMenuOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                        </button>
+                        
+                        {isMenuOpen && (
+                            <div className="absolute right-0 mt-2 w-48 rounded-xl bg-white shadow-xl ring-1 ring-black ring-opacity-5 z-[100] overflow-hidden border border-zinc-100">
+                                <div className="py-1">
+                                    <button
+                                        onClick={() => { setIsMenuOpen(false); router.push('/dashboard/profile'); }}
+                                        className="w-full text-left px-4 py-2.5 text-sm text-zinc-700 hover:bg-indigo-50 hover:text-indigo-600 font-medium transition-colors flex items-center gap-2"
+                                    >
+                                        <UserRound size={16} />
+                                        Profile
+                                    </button>
+                                    <div className="border-t border-zinc-100 my-1"></div>
+                                    <button
+                                        onClick={handleLogout}
+                                        className="w-full text-left px-4 py-2.5 text-sm text-rose-600 hover:bg-rose-50 font-medium transition-colors flex items-center gap-2"
+                                    >
+                                        <LogOut size={16} />
+                                        Sign out
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                )}
             </div>
           </div>
-
-          {/* Dropdown Menu */}
-          {isMenuOpen && (
-            <div className="absolute right-0 left-0 top-16 bg-white shadow-xl z-50">
-              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 space-y-2">
-                {/* User Info Section (Mobile) */}
-                {session?.user && (
-                  <div className="sm:hidden px-4 py-3 border-b">
-                    <div className="flex items-center gap-3">
-                      {session.user.image && (
-                        <Image
-                          src={session.user.image}
-                          alt="User Avatar"
-                          width={40}
-                          height={40}
-                          className="w-10 h-10 rounded-full"
-                        />
-                      )}
-                      <div>
-                        <p className="font-semibold text-gray-800">{session.user.name || 'User'}</p>
-                        <p className="text-sm text-gray-600">{session.user.email}</p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Menu Items */}
-                {menuItems.map((item) => {
-                  const IconComponent = item.icon;
-                  return (
-                    <Link
-                      key={item.name}
-                      href={item.href}
-                      onClick={() => setIsMenuOpen(false)}
-                      className="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 rounded-lg transition-all font-medium"
-                    >
-                      <IconComponent size={20} />
-                      {item.name}
-                    </Link>
-                  );
-                })}
-
-                {/* Divider */}
-                <div className="border-t my-2"></div>
-
-                {/* Logout Button */}
-                <button
-                  onClick={handleLogout}
-                  className="w-full flex items-center gap-3 px-4 py-3 text-red-600 hover:bg-red-50 rounded-lg transition-all font-medium"
-                >
-                  <LogOut size={20} />
-                  Sign Out
-                </button>
-              </div>
-            </div>
-          )}
         </div>
       </nav>
       <div className='mt-18'>

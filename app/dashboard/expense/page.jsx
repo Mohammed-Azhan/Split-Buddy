@@ -1,23 +1,16 @@
-'use client'
-import React from 'react'
-import SplitPage from '../../../components/SplitPage'
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Users, DollarSign, CheckIcon, Calculator, TrendingUp, Percent, Hash, BadgeCheck, CreditCard, CheckCircle2, Plus, X, ChevronDown, Check } from "lucide-react";
-import ExpenseForm from '../../../components/ExpenseForm'
-import StarBorder from '../../../components/StarBorder'
-import { toast } from 'sonner'
-import {
-    Popover,
-    PopoverContent,
-    PopoverTrigger,
-} from "@/components/ui/popover"
-import { useEffect, useState } from "react";
+'use client';
+
+import React, { useEffect, useState } from 'react';
 import axios from "axios";
 import { useSession } from "next-auth/react";
-import SpotlightCard from '../../../components/SpotlightCard'
-import FuzzyText from '@/components/FuzzyText';
+import { toast } from 'sonner';
+import { motion, AnimatePresence } from 'framer-motion';
+import { 
+    Users, Plus, X, BadgeCheck, CheckCircle2, ChevronDown, 
+    CreditCard, Calendar, ArrowRight, Receipt, Clock, Landmark, Activity
+} from "lucide-react";
+import ExpenseForm from '../../../components/ExpenseForm';
+
 const page = () => {
     const [expenses, setExpenses] = useState([]);
     const { data: session } = useSession();
@@ -25,23 +18,16 @@ const page = () => {
     const [showDetailsModal, setShowDetailsModal] = useState(false);
     const [editMode, setEditMode] = useState(false);
     const [showPopup, setShowPopup] = useState(false);
-    const [showExpenseForm, setShowExpenseForm] = useState(false);
-    const [formData, setFormData] = useState(null);
     const [totalExpenses, setTotalExpenses] = useState(0);
-    const [owe, setTotalOwe] = useState(0);
+    const [owe, setTotalOwe] = useState({ amount: "0.00", type: "get", sign: "green" });
     const [activeTab, setActiveTab] = useState("ongoing"); // ongoing | settled
-
-
-
     const [loading, setLoading] = useState(true);
+
     useEffect(() => {
         if (!session?.user?.id) return;
-
         const fetchExpenses = async () => {
             try {
-                const res = await axios.get(
-                    `/api/split/expense/getExpense?userId=${session.user.id}`
-                );
+                const res = await axios.get(`/api/split/expense/getExpense?userId=${session.user.id}`);
                 setExpenses(res.data.expenses);
             } catch (err) {
                 console.error(err);
@@ -49,555 +35,365 @@ const page = () => {
                 setLoading(false);
             }
         };
-
         fetchExpenses();
     }, [session]);
 
     useEffect(() => {
         if (!session?.user?.id || expenses.length === 0) return;
-
         const totalInvestedPaise = expenses.reduce((expenseSum, expense) => {
             const paidInThisExpense = expense.participants.reduce((pSum, p) => {
                 if (p.friendId === session.user.id) {
-                    return pSum + p.paid; // ✅ paise
+                    return pSum + p.paid; // paise
                 }
                 return pSum;
             }, 0);
-
             return expenseSum + paidInThisExpense;
         }, 0);
-
         setTotalExpenses((totalInvestedPaise / 100).toFixed(2));
     }, [expenses, session]);
 
-
     useEffect(() => {
         if (!session?.user?.id || expenses.length === 0) return;
-
         const { get, give } = expenses.reduce(
             (acc, expense) => {
-                // ❌ IGNORE settled expenses
                 if (expense.isSettled) return acc;
-
                 expense.settlements.forEach(s => {
                     if (s.toId === session.user.id) acc.get += s.amount;
                     if (s.fromId === session.user.id) acc.give += s.amount;
                 });
-
                 return acc;
             },
             { get: 0, give: 0 }
         );
 
-        const netPaise = get - give; // KEEP SIGN
-
+        const netPaise = get - give; 
         setTotalOwe({
-            amount: (netPaise / 100).toFixed(2),
+            amount: (Math.abs(netPaise) / 100).toFixed(2),
             type: netPaise < 0 ? "owe" : "get",
             sign: netPaise < 0 ? "red" : "green",
         });
-
     }, [expenses, session]);
 
-
-
-
-
     const fromPaise = (p) => (p / 100).toFixed(2);
-
-    const formatDate = (date) =>
-        new Date(date).toLocaleDateString("en-IN", {
-            day: "2-digit",
-            month: "short",
-            year: "numeric",
-        });
-
+    const formatDate = (date) => new Date(date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+    
     const getInitial = (name) => {
-        if (session?.user?.username === name)
-            return "You"
-        else {
-            return name?.charAt(0)?.toUpperCase() || "?"
-        }
+        if (session?.user?.username === name) return "You";
+        return name?.charAt(0)?.toUpperCase() || "?";
     };
-
-    useEffect(() => {
-        console.log(expenses);
-    }, [expenses])
-
 
     const handleSettleUp = async (expenseId, mode) => {
         try {
-            const res = await axios.put(
-                `/api/split/expense/settleExpense/${expenseId}`, { mode }
-            );
+            const res = await axios.put(`/api/split/expense/settleExpense/${expenseId}`, { mode });
             if (res.data.status) {
-                toast.success(` ${res.data.message} 🎉`);
-
-                // ✅ Update UI instantly
-                setExpenses(prev =>
-                    prev.map(exp =>
-                        exp._id === expenseId
-                            ? { ...exp, isSettled: true }
-                            : exp
-                    )
-                );
+                toast.success(`${res.data.message} 🎉`);
+                setExpenses(prev => prev.map(exp => exp._id === expenseId ? { ...exp, isSettled: mode === "settle" } : exp));
             }
         } catch (err) {
             console.error(err);
-            toast.error("Failed to settle expense");
+            toast.error("Failed to update settlement status");
         }
     };
 
-
-
-
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center min-h-[80vh]">
+                <div className="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+            </div>
+        );
+    }
 
     return (
-        <>
-            <div className='pt-12 md:mx-8'>
-                <FuzzyText
-                    baseIntensity={0.2}
-                    hoverIntensity={0.5}
-                    enableHover={true}
-                    color={"black"}
-                    fontSize={'clamp(2rem, 2vw, 5rem)'}
-
-
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 mt-20 md:mt-24 mb-24 min-h-screen">
+            
+            {/* Header Section */}
+            <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-6"
+            >
+                <div>
+                    <h1 className="text-4xl font-extrabold text-gray-900 tracking-tight mb-2">Expenses</h1>
+                    <p className="text-gray-500 max-w-xl text-lg">Manage your shared expenses, track who owes what, and settle up instantly.</p>
+                </div>
+                <button
+                    onClick={() => setShowPopup(true)}
+                    className="bg-gray-900 text-white px-6 py-3.5 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-black transition-all active:scale-95 shadow-lg shadow-gray-200"
                 >
-                    Create Expense
-                </FuzzyText>
+                    <Plus className="w-5 h-5" />
+                    New Expense
+                </button>
+            </motion.div>
 
+            {/* Stats Row */}
+            <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 }}
+                className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12"
+            >
+                <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex items-center gap-5">
+                    <div className="w-14 h-14 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-600">
+                        <Receipt className="w-6 h-6" />
+                    </div>
+                    <div>
+                        <p className="text-sm font-semibold text-gray-500">Total Activities</p>
+                        <p className="text-2xl font-bold text-gray-900">{expenses.length}</p>
+                    </div>
+                </div>
 
-                {/* section 1 */}
+                <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 flex items-center gap-5">
+                    <div className="w-14 h-14 rounded-2xl bg-zinc-100 flex items-center justify-center text-zinc-600">
+                        <Landmark className="w-6 h-6" />
+                    </div>
+                    <div>
+                        <p className="text-sm font-semibold text-gray-500">Your Investments</p>
+                        <p className="text-2xl font-bold text-gray-900">₹{totalExpenses}</p>
+                    </div>
+                </div>
 
+                <div className={`bg-white rounded-3xl p-6 shadow-sm border ${owe.sign === "red" ? 'border-rose-100' : 'border-emerald-100'} flex items-center gap-5`}>
+                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${owe.sign === "red" ? 'bg-rose-50 text-rose-600' : 'bg-emerald-50 text-emerald-600'}`}>
+                        <Activity className="w-6 h-6" />
+                    </div>
+                    <div>
+                        <p className="text-sm font-semibold text-gray-500">Net Pending Balance</p>
+                        <div className="flex items-end gap-2">
+                            <p className={`text-2xl font-bold ${owe.sign === "red" ? 'text-rose-600' : 'text-emerald-600'}`}>
+                                {owe.sign === "red" ? "-" : "+"}₹{owe.amount}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </motion.div>
 
+            {/* List Section */}
+            <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+                className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden"
+            >
+                {/* Tabs */}
+                <div className="flex items-center gap-2 p-2 bg-gray-50/50 border-b border-gray-100">
+                    <button
+                        onClick={() => setActiveTab("ongoing")}
+                        className={`flex-1 md:flex-none px-6 py-3 rounded-2xl text-sm font-bold transition-all ${
+                            activeTab === "ongoing"
+                                ? "bg-white text-gray-900 shadow-sm ring-1 ring-gray-100"
+                                : "text-gray-500 hover:text-gray-700 hover:bg-gray-100/50"
+                        }`}
+                    >
+                        Pending Expenses
+                    </button>
+                    <button
+                        onClick={() => setActiveTab("settled")}
+                        className={`flex-1 md:flex-none px-6 py-3 rounded-2xl text-sm font-bold transition-all ${
+                            activeTab === "settled"
+                                ? "bg-white text-gray-900 shadow-sm ring-1 ring-gray-100"
+                                : "text-gray-500 hover:text-gray-700 hover:bg-gray-100/50"
+                        }`}
+                    >
+                        Settled History
+                    </button>
+                </div>
 
+                {/* Expense List */}
+                <div className="divide-y divide-gray-50">
+                    {expenses.filter(expense => activeTab === "ongoing" ? !expense.isSettled : expense.isSettled).length === 0 ? (
+                        <div className="p-16 flex flex-col items-center justify-center text-center">
+                            <div className="w-20 h-20 bg-gray-50 rounded-full flex items-center justify-center mb-4">
+                                <Receipt className="w-8 h-8 text-gray-300" />
+                            </div>
+                            <h3 className="text-xl font-bold text-gray-900 mb-2">No {activeTab} expenses</h3>
+                            <p className="text-gray-500 max-w-sm">When you create or participate in an expense, it will show up here.</p>
+                        </div>
+                    ) : (
+                        expenses
+                            .filter(expense => activeTab === "ongoing" ? !expense.isSettled : expense.isSettled)
+                            .map((expense) => {
+                                const you = expense.participants.find(p => p.friendId === session.user.id);
+                                const diff = you ? you.paid - you.share : 0;
 
+                                return (
+                                    <div key={expense._id} className="p-6 md:p-8 hover:bg-gray-50/50 transition-colors group flex flex-col md:flex-row md:items-center justify-between gap-6">
+                                        <div className="flex-1">
+                                            <div className="flex items-center gap-3 mb-2">
+                                                <h3 className="text-xl font-bold text-gray-900">{expense.eventName}</h3>
+                                                {expense.isSettled && (
+                                                    <span className="inline-flex items-center gap-1 text-xs font-bold px-2 py-1 bg-emerald-50 text-emerald-700 rounded-lg border border-emerald-100">
+                                                        <BadgeCheck className="w-3.5 h-3.5" />
+                                                        Settled
+                                                    </span>
+                                                )}
+                                            </div>
+                                            
+                                            <div className="flex items-center gap-4 text-sm font-medium text-gray-500 mb-4">
+                                                <span className="flex items-center gap-1.5"><Calendar className="w-4 h-4" /> {formatDate(expense.createdAt)}</span>
+                                                <span className="flex items-center gap-1.5"><Users className="w-4 h-4" /> {expense.participants.length} people</span>
+                                            </div>
 
-
-
-
-                <div className="py-8 px-4">
-                    <div className="max-w-7xl mt-12 mx-auto">
-                        {/* Header */}
-                        <div className="mb-12">
-                            <div className="flex flex-col md:flex-row items-center justify-between gap-8">
-
-                                {/* Left: Title & Context */}
-                                <div className="text-center md:text-left">
-                                    <div className="inline-flex items-center gap-3 mb-3">
-                                        <div className="w-12 h-12 bg-black rounded-xl flex items-center justify-center shadow-md">
-                                            <Users className="w-6 h-6 text-white" />
+                                            <div className="flex -space-x-2">
+                                                {expense.participants.slice(0, 5).map((p, idx) => (
+                                                    <div key={idx} className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-white flex items-center justify-center text-xs font-bold border-2 border-white ring-1 ring-gray-100 shadow-sm" title={p.name}>
+                                                        {getInitial(p.name)}
+                                                    </div>
+                                                ))}
+                                                {expense.participants.length > 5 && (
+                                                    <div className="w-8 h-8 rounded-full bg-gray-100 text-gray-600 flex items-center justify-center text-xs font-bold border-2 border-white ring-1 ring-gray-100 shadow-sm">
+                                                        +{expense.participants.length - 5}
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
-                                        <span className="text-sm font-semibold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full">
-                                            Expense Manager
-                                        </span>
+
+                                        <div className="flex flex-col md:items-end gap-1">
+                                            <div className="text-2xl font-black text-gray-900">₹{fromPaise(expense.totalAmount)}</div>
+                                            <div className="text-sm font-semibold text-gray-500 mb-4">Total Amount</div>
+                                            
+                                            {diff > 0 ? (
+                                                <div className="text-emerald-600 font-bold bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-100">
+                                                    You get ₹{fromPaise(diff)}
+                                                </div>
+                                            ) : diff < 0 ? (
+                                                <div className="text-rose-600 font-bold bg-rose-50 px-3 py-1.5 rounded-lg border border-rose-100">
+                                                    You owe ₹{fromPaise(Math.abs(diff))}
+                                                </div>
+                                            ) : (
+                                                <div className="text-gray-500 font-bold bg-gray-100 px-3 py-1.5 rounded-lg">
+                                                    Settled up
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <div className="flex items-center gap-2 mt-4 md:mt-0 pt-4 md:pt-0 border-t md:border-t-0 border-gray-100">
+                                            {!expense.isSettled ? (
+                                                <button 
+                                                    onClick={() => handleSettleUp(expense._id, "settle")} 
+                                                    className="flex-1 md:flex-none px-4 py-2.5 bg-indigo-600 text-white text-sm font-bold rounded-xl hover:bg-indigo-700 transition-colors shadow-sm"
+                                                >
+                                                    Settle
+                                                </button>
+                                            ) : (
+                                                <button 
+                                                    onClick={() => handleSettleUp(expense._id, "unsettle")} 
+                                                    className="flex-1 md:flex-none px-4 py-2.5 bg-gray-100 text-gray-600 text-sm font-bold rounded-xl hover:bg-gray-200 transition-colors"
+                                                >
+                                                    Undo
+                                                </button>
+                                            )}
+                                            <button
+                                                onClick={() => { setSelectedExpense(expense); setShowDetailsModal(true); setEditMode(false); }}
+                                                className="flex-1 md:flex-none px-4 py-2.5 bg-white border border-gray-200 text-gray-700 text-sm font-bold rounded-xl hover:bg-gray-50 transition-colors shadow-sm"
+                                            >
+                                                Details
+                                            </button>
+                                        </div>
                                     </div>
+                                );
+                            })
+                    )}
+                </div>
+            </motion.div>
 
-                                    <h1 className="text-4xl md:text-5xl mt-8 md:mt-1 font-bold text-black leading-tight">
-                                        Manage your expenses
-                                    </h1>
+            {/* Create Popup Form */}
+            {showPopup && <ExpenseForm mode='create' onClose={() => setShowPopup(false)} />}
 
-                                    <p className="text-gray-600 text-lg mt-8 md:mt-4 max-w-xl">
-                                        Create, split, and settle shared expenses with friends — clearly and fairly.
+            {/* Expense Details Modal */}
+            <AnimatePresence>
+                {showDetailsModal && selectedExpense && (
+                    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+                        <motion.div 
+                            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+                            onClick={() => setShowDetailsModal(false)}
+                        />
+                        
+                        <motion.div 
+                            initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }} transition={{ type: "spring", duration: 0.5, bounce: 0 }}
+                            className="bg-white w-full max-w-2xl rounded-[2rem] shadow-2xl relative z-10 overflow-hidden flex flex-col max-h-[90vh]"
+                        >
+                            <div className="bg-gray-50 px-8 py-6 border-b border-gray-100 flex items-center justify-between">
+                                <h2 className="text-xl font-bold text-gray-900 tracking-tight">Expense Details</h2>
+                                <button onClick={() => setShowDetailsModal(false)} className="w-8 h-8 flex items-center justify-center rounded-full bg-gray-200/50 text-gray-500 hover:bg-gray-200 hover:text-gray-900 transition-colors">
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
+
+                            <div className="overflow-y-auto flex-1 p-8 space-y-8">
+                                <div className="text-center">
+                                    <h3 className="text-3xl font-extrabold text-gray-900 mb-2">{selectedExpense.eventName}</h3>
+                                    <p className="text-gray-500 font-medium flex items-center justify-center gap-2">
+                                        <Calendar className="w-4 h-4" /> {new Date(selectedExpense.createdAt).toLocaleString()}
                                     </p>
                                 </div>
 
-                                {/* Right: Quick Stats */}
-                                <div className="flex flex-wrap items-center justify-center gap-4">
-
-                                    <div className="bg-white border border-gray-200 rounded-2xl px-6 py-4 text-center shadow-sm">
-                                        <p className="text-sm text-gray-500">Total expenses created</p>
-                                        <p className="text-2xl font-bold text-indigo-600 mt-3">{expenses.length}</p>
+                                <div className="bg-gray-50 rounded-2xl p-6 border border-gray-100 flex items-center justify-between">
+                                    <div>
+                                        <p className="text-sm font-semibold text-gray-500">Total Amount</p>
+                                        <p className="text-3xl font-black text-gray-900">₹{fromPaise(selectedExpense.totalAmount)}</p>
                                     </div>
-
-                                    <div className="bg-white border border-gray-200 rounded-2xl px-6 py-4 text-center shadow-sm">
-                                        <p className="text-sm text-gray-500">Your total investments</p>
-                                        <p className="text-2xl font-bold text-yellow-500 mt-3">₹{totalExpenses}</p>
-                                    </div>
-
-                                    <div className="bg-white border border-gray-200 rounded-2xl px-6 py-4 text-center shadow-sm">
-                                        <p className="text-sm text-gray-500">You Owe / Get</p>
-                                        <p className={`text-2xl mt-3 font-bold text-${owe.sign == "red" ? 'red' : 'green'}-600`}>₹{owe.amount}</p>
+                                    <div className="text-right">
+                                        <p className="text-sm font-semibold text-gray-500">Split Method</p>
+                                        <p className="text-lg font-bold text-indigo-600 capitalize">{selectedExpense.splitType}</p>
                                     </div>
                                 </div>
+
+                                <div>
+                                    <h4 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4">Participants</h4>
+                                    <div className="space-y-3">
+                                        {selectedExpense.participants.map((p, i) => (
+                                            <div key={i} className="flex items-center justify-between bg-white border border-gray-100 rounded-xl p-4 shadow-sm">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-8 h-8 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 font-bold text-sm">
+                                                        {p.name[0]?.toUpperCase()}
+                                                    </div>
+                                                    <span className="font-bold text-gray-900">{p.name}</span>
+                                                </div>
+                                                <div className="text-right">
+                                                    <p className="text-sm font-bold text-gray-900">Paid: ₹{fromPaise(p.paid)}</p>
+                                                    <p className="text-xs font-semibold text-gray-500">Share: ₹{fromPaise(p.share)}</p>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {selectedExpense.settlements.length > 0 && (
+                                    <div>
+                                        <h4 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4">Settlement Plan</h4>
+                                        <div className="space-y-3">
+                                            {selectedExpense.settlements.map((s, i) => (
+                                                <div key={i} className="flex items-center justify-between bg-indigo-50/50 border border-indigo-100 rounded-xl p-4">
+                                                    <div className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+                                                        <span className="text-gray-900">{s.from}</span>
+                                                        <TrendingUp className="w-4 h-4 text-indigo-400" />
+                                                        <span className="text-gray-900">{s.to}</span>
+                                                    </div>
+                                                    <span className="font-bold text-indigo-600">₹{fromPaise(s.amount)}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
-                            {/* CTA */}
-                            <div className="flex justify-center md:justify-start mt-8">
+                            <div className="p-6 border-t border-gray-100 bg-gray-50/50">
                                 <button
-                                    onClick={() => setShowPopup(true)}
-                                    className="bg-indigo-600 text-white px-8 py-4 rounded-xl font-semibold text-lg flex items-center gap-2 hover:bg-indigo-500 transition-all shadow-lg hover:shadow-xl"
+                                    onClick={() => setEditMode(true)}
+                                    className="w-full py-4 rounded-xl font-bold text-white bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-500/20 transition-all active:scale-[0.98] flex items-center justify-center gap-2"
                                 >
-                                    <Plus className="w-6 h-6" />
-                                    Create a new expense
+                                    Edit Expense
                                 </button>
                             </div>
-                        </div>
-
-
-                        {/* Popup Modal with Animation */}
-                        {showPopup ?
-                            <ExpenseForm mode={'create'} onClose={() => setShowPopup(false)}></ExpenseForm> : null}
+                        </motion.div>
                     </div>
+                )}
+            </AnimatePresence>
 
+            {editMode && <ExpenseForm mode="edit" onClose={() => setEditMode(false)} initialData={selectedExpense} />}
+        </div>
+    );
+};
 
-                    <style jsx>{`
-            @keyframes fadeIn {
-            from {
-                opacity: 0;
-            }
-            to {
-                opacity: 1;
-            }
-            }
-
-            @keyframes slideUp {
-            from {
-                opacity: 0;
-                transform: translateY(20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-            }
-
-            .animate-fadeIn {
-            animation: fadeIn 0.2s ease-out;
-            }
-
-            .animate-slideUp {
-            animation: slideUp 0.3s ease-out;
-            }
-        `}</style>
-                </div>
-
-
-            </div>
-
-
-
-            <div className="mt-8 bg-gray-100 py-8 md:p-6 rounded-lg">
-                <FuzzyText
-                    baseIntensity={0.2}
-                    hoverIntensity={0.5}
-                    enableHover={true}
-                    color={"black"}
-                    fontSize={'clamp(2rem, 2vw, 5rem)'}
-
-                    className={'mt-4'}
-
-                >
-                    Your expenses
-                </FuzzyText>
-
-                {/* Tabs */}
-                <div className="flex gap-4 mt-6 mb-8 md:ml-14 overflow-y-auto p-8">
-                    <button
-                        onClick={() => setActiveTab("ongoing")}
-                        className={`px-6 py-2 rounded-xl font-semibold transition
-                    ${activeTab === "ongoing"
-                                ? "bg-indigo-600 text-white"
-                                : "bg-white text-gray-600 border border-gray-300"
-                            }`}
-                    >
-                        Ongoing
-                    </button>
-
-                    <button
-                        onClick={() => setActiveTab("settled")}
-                        className={`px-6 py-2 rounded-xl font-semibold transition
-                    ${activeTab === "settled"
-                                ? "bg-green-600 text-white"
-                                : "bg-white text-gray-600 border border-gray-300"
-                            }`}
-                    >
-                        Settled
-                    </button>
-
-
-
-                </div>
-
-
-
-                {/* Expense Cards */}
-                <div className="flex items-center justify-center gap-8">
-                    <div className="md:w-[90%] w-full flex items-center justify-center">
-                        <div className='cards mx-3 w-full md:w-auto'>
-                            {expenses
-                                .filter(expense =>
-                                    activeTab === "ongoing"
-                                        ? !expense.isSettled
-                                        : expense.isSettled
-                                )
-                                .map((expense) => {
-                                    const peopleCount = expense.participants.length;
-
-                                    const you = expense.participants.find(
-                                        p => p.friendId === session.user.id
-                                    );
-
-                                    const yourPaid = you ? you.paid : 0;
-                                    const yourShare = you ? you.share : 0;
-                                    const diff = yourPaid - yourShare;
-
-
-                                    return (
-                                        <SpotlightCard
-                                            key={expense._id}
-                                            className='w-full md:w-[900px] mb-6'
-                                            spotlightColor="rgba(56, 92, 253, 0.2)"
-                                        >
-                                            {/* Involved People */}
-                                            <div className='flex items-center flex-col justify-between md:px-8'>
-
-                                                <div className="flex items-center gap-2 mt-3">
-                                                    <span className="text-lg font-bold text-gray-600">With</span>
-                                                    <div className="flex -space-x-2">
-                                                        {expense.participants.slice(0, 4).map((p, idx) => (
-                                                            <div
-                                                                key={idx}
-                                                                className="w-8 h-8 p-2 rounded-full bg-indigo-500 text-white flex items-center justify-center text-xs font-semibold border-2 border-white"
-                                                            >
-                                                                {getInitial(p.name)}
-                                                            </div>
-                                                        ))}
-                                                    </div>
-
-                                                    {expense.participants.length > 4 && (
-                                                        <span className="text-xs text-gray-500 ml-1">
-                                                            +{expense.participants.length - 4} more
-                                                        </span>
-                                                    )}
-                                                </div>
-                                                {expense.isSettled ? <div>
-                                                    <StarBorder
-                                                        thickness={1.5}
-                                                        speed={"4.2s"}
-                                                        color='indigo'
-                                                        as={"button"}
-                                                        className="font-semibold"
-                                                    >
-                                                        <span className='flex items-center gap-4 text-lg text-indigo-700 font-bold '>
-                                                            <BadgeCheck size={36} color='green' />
-
-                                                            Settled
-                                                        </span>
-                                                    </StarBorder>
-                                                </div> : null}
-                                            </div>
-
-                                            {/* Header */}
-                                            <div className="flex flex-col sm:flex-row md:flex-row justify-between items-center mb-4">
-                                                <div className='flex flex-col items-center md:block md:items-start'>
-                                                    <h3 className="text-4xl md:text-5xl mt-4 mb-4 font-semibold text-gray-900">
-                                                        {expense.eventName}
-                                                    </h3>
-                                                    <p className="text-sm text-gray-900 mt-2 bg-indigo-500 inline-block p-2 rounded-xl text-white font-semibold">
-                                                        {peopleCount} people • {formatDate(expense.createdAt)}
-                                                    </p>
-                                                </div>
-
-                                                <span className="text-xl font-bold mt-4 sm:mt-1 text-indigo-600">
-                                                    ₹{fromPaise(expense.totalAmount)}
-                                                </span>
-                                            </div>
-
-                                            <div className="h-px bg-gray-200 mb-4" />
-
-                                            {/* Summary */}
-                                            <div className="space-y-4 mb-4">
-                                                <div className="flex justify-between text-sm">
-                                                    <span className="text-md text-gray-900 font-semibold">Your share</span>
-                                                    <span className="font-medium text-gray-900">
-                                                        ₹{fromPaise(yourShare)}
-                                                    </span>
-                                                </div>
-
-                                                {diff > 0 && (
-                                                    <div className="flex justify-between text-sm">
-                                                        <span className="text-gray-900 text-md font-semibold">You get back</span>
-                                                        <span className="font-semibold text-green-700">
-                                                            ₹{fromPaise(diff)}
-                                                        </span>
-                                                    </div>
-                                                )}
-
-                                                {diff < 0 && (
-                                                    <div className="flex justify-between text-sm">
-                                                        <span className="text-gray-900">You owe</span>
-                                                        <span className="font-semibold text-red-600">
-                                                            ₹{fromPaise(Math.abs(diff))}
-                                                        </span>
-                                                    </div>
-                                                )}
-                                            </div>
-
-                                            {/* Actions */}
-                                            <div className="flex gap-3">
-                                                {!expense.isSettled ? (
-                                                    <button onClick={() => handleSettleUp(expense._id, "settle")} className="flex-1 bg-indigo-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition">
-                                                        Settle Up
-                                                    </button>
-                                                ) : <button onClick={() => handleSettleUp(expense._id, "unsettle")} className="flex-1 bg-green-500 text-white py-2 rounded-lg text-sm font-medium hover:bg-green-300 transition">
-                                                    Mark as un settled
-                                                </button>}
-
-                                                <button
-                                                    onClick={() => {
-                                                        setSelectedExpense(expense);
-                                                        setShowDetailsModal(true);
-                                                        setEditMode(false);
-                                                    }}
-                                                    className="flex-1 border border-gray-300 py-2 rounded-lg text-sm font-medium bg-gray-100 hover:bg-gray-200 transition"
-                                                >
-                                                    View Details
-                                                </button>
-                                            </div>
-                                        </SpotlightCard>
-                                    );
-                                })}
-                        </div>
-                    </div>
-                    {/* Empty state */}
-                    {expenses.filter(e =>
-                        activeTab === "ongoing" ? !e.isSettled : e.isSettled
-                    ).length === 0 && (
-                            <p className="text-gray-500 text-lg mt-12">
-                                No {activeTab} expenses found.
-                            </p>
-                        )}
-                </div>
-            </div>
-
-
-            {showDetailsModal && selectedExpense && (
-                <div className="fixed inset-0 z-[9999] flex items-center justify-center">
-
-                    {/* Backdrop */}
-                    <div
-                        className="absolute inset-0 bg-black/50"
-                        onClick={() => setShowDetailsModal(false)}
-                    />
-
-                    {/* Modal */}
-                    <div className="relative bg-white w-full max-w-3xl rounded-3xl shadow-2xl p-6 animate-slideUp">
-
-                        {/* Header */}
-                        <div className="flex justify-between items-center mb-4">
-                            <h2 className="text-2xl font-bold text-gray-900">
-                                Expense Details
-                            </h2>
-                            <button onClick={() => setShowDetailsModal(false)}>
-                                <X className="w-6 h-6 text-gray-600" />
-                            </button>
-                        </div>
-
-                        {/* Event */}
-                        <div className="mb-4">
-                            {editMode ? (
-                                <input
-                                    className="w-full border rounded-lg px-3 py-2"
-                                    value={selectedExpense.eventName}
-                                    onChange={(e) =>
-                                        setSelectedExpense({
-                                            ...selectedExpense,
-                                            eventName: e.target.value,
-                                        })
-                                    }
-                                />
-                            ) : (
-                                <h3 className="text-lg font-semibold">
-                                    {selectedExpense.eventName}
-                                </h3>
-                            )}
-                            <p className="text-sm text-gray-500">
-                                {new Date(selectedExpense.createdAt).toLocaleString()}
-                            </p>
-                        </div>
-
-                        {/* Amount */}
-                        <div className="bg-gray-50 rounded-xl p-4 mb-4">
-                            <div className="flex justify-between">
-                                <span className="text-gray-600">Total Amount</span>
-                                <span className="font-bold text-lg">
-                                    ₹{(selectedExpense.totalAmount / 100).toFixed(2)}
-                                </span>
-                            </div>
-                            <p className="text-sm text-gray-500 mt-1">
-                                Split type: {selectedExpense.splitType}
-                            </p>
-                        </div>
-
-                        {/* Participants */}
-                        <div className="mb-4">
-                            <h4 className="font-semibold mb-2">Participants</h4>
-                            <div className="space-y-2">
-                                {selectedExpense.participants.map((p, i) => (
-                                    <div
-                                        key={i}
-                                        className="flex justify-between bg-gray-100 rounded-lg p-3"
-                                    >
-                                        <span>{p.name}</span>
-                                        <span>
-                                            Paid ₹{(p.paid / 100).toFixed(2)} • Share ₹
-                                            {(p.share / 100).toFixed(2)}
-                                        </span>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* Settlements */}
-                        {selectedExpense.settlements.length > 0 && (
-                            <div className="mb-4">
-                                <h4 className="font-semibold mb-2">Settlement Plan</h4>
-                                <div className="space-y-2">
-                                    {selectedExpense.settlements.map((s, i) => (
-                                        <div
-                                            key={i}
-                                            className="flex justify-between bg-indigo-50 rounded-lg p-3"
-                                        >
-                                            <span>
-                                                {s.from} → {s.to}
-                                            </span>
-                                            <span className="font-semibold">
-                                                ₹{(s.amount / 100).toFixed(2)}
-                                            </span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Actions */}
-                        <div className="flex gap-3 mt-6">
-                            <button
-                                onClick={() => {
-                                    setEditMode(!editMode)
-                                    return <SplitPage mode='edit'></SplitPage>
-                                }}
-                                className="flex-1 bg-indigo-600 text-white py-2 rounded-lg"
-                            >
-                                {editMode ? "Cancel Edit" : "Edit Expense"}
-                            </button>
-
-                            {editMode && (
-                                <ExpenseForm mode={"edit"} onClose={() => setEditMode(false)} initialData={selectedExpense}></ExpenseForm>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            )}
-
-
-        </>
-
-
-
-    )
-}
-
-export default page
+export default page;

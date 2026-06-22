@@ -12,10 +12,10 @@ import { redirect } from 'next/navigation';
 import { toast } from 'react-toastify';
 const navigation = [
     { name: 'Home', href: '/', current: true },
-    { name: 'Team', href: '#', current: false },
-    { name: 'Projects', href: '#', current: false },
-    { name: 'Calendar', href: '#', current: false },
-    { name: 'Contact', href: '#', current: false },
+    { name: 'Features', href: '#features', current: false },
+    { name: 'How it works', href: '#how-it-works', current: false },
+    { name: 'Who can use', href: '#who-can-use', current: false },
+    { name: 'Contact', href: '#contact', current: false },
 ]
 
 function classNames(...classes) {
@@ -32,7 +32,7 @@ export default function Navbar() {
     const reDirect = () => {
         return redirect('/signin');
     }
-    const hideNav = ['/signin', '/signup', '/api/auth/error'];
+    const hideNav = ['/', '/signin', '/signup', '/api/auth/error'];
     const path = usePathname();
     if (hideNav.includes(path) || path.startsWith('/dashboard')) {
         return null;

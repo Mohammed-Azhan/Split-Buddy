@@ -1,6 +1,6 @@
 'use client';
 import React, { useEffect, useState } from 'react'
-import SignIn from '@/pages/SignIn';
+import SignIn from '@/pagesMain/signin';
 import { main } from 'framer-motion/client';
 import { useSearchParams } from 'next/navigation';
 const page = () => {
